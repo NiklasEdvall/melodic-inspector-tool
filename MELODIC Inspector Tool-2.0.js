@@ -432,7 +432,7 @@
             const line = lines[i].trim();
             if(!line) continue;
             
-            const [subject, session, n, raterA, raterB] = line.split('\t');
+            const [subject, session, raterA, raterB] = line.split('\t');
             
             // Parse component lists
             const compA = raterA.replace(/"/g, '').split(',').map(Number);
@@ -440,7 +440,6 @@
             
             if(!data[subject]) data[subject] = {};
             data[subject][session] = {
-                n: parseInt(n),
                 raterA: compA,
                 raterB: compB,
                 disputed: compA.filter(x => !compB.includes(x))
