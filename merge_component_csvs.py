@@ -38,6 +38,10 @@ def main():
     
     output_file = 'identified_comps.txt'
     
+    # Get folder names for column headers
+    rater_a_name = folder_a.name
+    rater_b_name = folder_b.name
+    
     # Store results
     results = []
     
@@ -67,18 +71,22 @@ def main():
         with open(files_b[filename], 'r') as f:
             content_b = f.read().strip()
         
-        # Add to results
-        results.append({
+        # Add to results using folder names as column headers
+        result_dict = {
             'Subject': subject,
-            'Session': session,
-            'A': content_a,
-            'B': content_b
-        })
+            'Session': session
+        }
+        # Add rater data with folder names as column headers
+        result_dict[rater_a_name] = content_a
+        result_dict[rater_b_name] = content_b
+        results.append(result_dict)
     
-    # Create DataFrame and save to TSV
-    df = pd.DataFrame(results)
+    # Create DataFrame with explicit column order
+    columns = ['Subject', 'Session', rater_a_name, rater_b_name]
+    df = pd.DataFrame(results, columns=columns)
     df.to_csv(output_file, sep='\t', index=False)
     print(f"Successfully created {output_file}")
+    print(f"Column headers: Subject, Session, {rater_a_name}, {rater_b_name}")
 
 if __name__ == "__main__":
     main()

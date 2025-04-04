@@ -335,9 +335,9 @@
         setInterval(updateCountDisplay, 1000);
     }
 
-    // Prompt for filename and export CSV
+    // Modify the promptAndExportCSV function
     function promptAndExportCSV() {
-        if (checkedComponents.length === 0) {
+        if (mode === 'identify' && checkedComponents.length === 0) {
             alert('No components selected!');
             return;
         }
@@ -379,8 +379,16 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+
+        // Clear selection after download
+        checkedComponents = [];
+        uncertainComponents.clear();
+        saveCheckedComponents();
+        saveUncertainComponents();
+        updateCountDisplay();
     }
 
+    // Modify the getCSVContent function
     function getCSVContent() {
         if(mode === 'identify') {
             return checkedComponents.sort((a,b) => a-b).join(',');
@@ -399,7 +407,7 @@
             return '';
         }
 
-        // Get components both raters agreed on - convert to strings
+        // Get components both raters agreed on
         const agreed = sessionData.raterA
             .filter(x => sessionData.raterB.includes(x))
             .map(String);
@@ -409,9 +417,8 @@
             .filter(x => sessionData.disputed.includes(x))
             .map(x => uncertainComponents.has(x) ? `(${x})` : String(x));
         
-        // Combine and sort all components
-        const allComponents = [...agreed, ...selectedDisputed];
-        return allComponents
+        // Always return at least the agreed components in decision mode
+        return [...agreed, ...selectedDisputed]
             .sort((a,b) => {
                 const numA = parseInt(String(a).replace(/[()]/g, '') || '0');
                 const numB = parseInt(String(b).replace(/[()]/g, '') || '0');
@@ -432,7 +439,8 @@
             const line = lines[i].trim();
             if(!line) continue;
             
-            const [subject, session, n, raterA, raterB] = line.split('\t');
+            // Parse the 4-column format: Subject, Session, RaterA, RaterB
+            const [subject, session, raterA, raterB] = line.split('\t');
             
             // Parse component lists
             const compA = raterA.replace(/"/g, '').split(',').map(Number);
@@ -440,7 +448,6 @@
             
             if(!data[subject]) data[subject] = {};
             data[subject][session] = {
-                n: parseInt(n),
                 raterA: compA,
                 raterB: compB,
                 disputed: compA.filter(x => !compB.includes(x))
