@@ -36,7 +36,22 @@ def main():
         print("No folder selected for rater B. Exiting.")
         return
     
-    output_file = 'identified_comps.txt'
+    # Set output file path in data directory - try multiple locations
+    script_dir = Path(__file__).parent
+    possible_data_dirs = [
+        script_dir / 'data',  # Look for data folder next to script
+        Path('data'),         # Look in current working directory
+        Path('../data')       # Look in parent directory
+    ]
+    
+    output_dir = next((d for d in possible_data_dirs if d.exists()), None)
+    if not output_dir:
+        print("Error: Could not find data directory. Looked in:")
+        for d in possible_data_dirs:
+            print(f"  - {d.absolute()}")
+        return
+    
+    output_file = output_dir / 'identified_components.txt'
     
     # Get folder names for column headers
     rater_a_name = folder_a.name
