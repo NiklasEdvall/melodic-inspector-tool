@@ -17,9 +17,9 @@ Using [FSL Melodic](https://web.mit.edu/fsl_v5.0.10/fsl/doc/wiki/MELODIC.html) t
 
 ## Use to identify components
 * In **Mode: Identify** - look through components and check 'Exclude' for components to exclude
-* Return to _Main_ page of html-report to download CSV file.
+* Return to the _Main_ page of html-report to download CSV file.
 * **Note:** Selection is automatically cleared when you download CSV.
-* Use a file naming convention common to your project. If your data is in a BIDS structure `sub-01_ses-01.csv` is suggested for subject: `sub-01_ses-01` by default.
+* Use a file naming convention common to your project. If your data is in a BIDS structure `sub-01_ses-01.csv` is suggested for subject: `sub-01` session: `ses-01` by default.
 * The file is downloaded to your browsers download folder, collect your resulting CSVs somewhere safe.
 
 The page for a component in **Mode: Identify** <br>
@@ -31,11 +31,29 @@ Generally two or more raters look through the same dataset to identify noise com
 This is because the html-report itself does not hold info on subject or session, so in **Mode: Decision** this info is read from the file path of the report. Assuming you use this standard pathing and filenaming convention, you can use this tool to check through components that are disputed between raters.
 
 ## Preparation
-* Use **merge_component_csvs.py** to merge identified components from two raters CSV-files to one combined csv, by default named **identified_components.txt**
-* When switching to **Mode: Decision** select the file **identified_components.txt** you created
+* Use **merge_component_csvs.py** to merge identified components from two raters CSV-files to one combined tsv, by default named **identified_components.txt**
+* When switching to **Mode: Decision** select the file **identified_components.txt** you created. Some mock-up data is included in this repository `/data` to work as a template.
 
+_Switch between modes here_ <br>
 <img width="500" alt="Switch modes" src="https://github.com/user-attachments/assets/9a4286d7-516e-4b4c-9e69-e3f39fef63f7" />
 
-<br>
+## Make decision for components
+* Go through the components disputed by raters and make a final descision.
+* Check uncertain if you want a component to be reviewed by a third reviewer or you want to experiment with how inclusion/exclusion of this component affect your analysis.
+* Return to _Main_ page of the html-report to download CSV file.
+* The CSV downloaded in **Mode: Decision** contain all components both raters agreed to exclude, plus components selected in this mode. Components marked 'uncertain' are exported in parenthesis.
+  <br><br>
+    For example: Rater A have selected components 1,2,4 and rater B selected 1,2,3 in **Mode: Identify**. When combined and displayed in **Mode: Decision** the report will display component 3 and 4, as these are selected by only one rater. If component 3 is now selected for exclusion and 4 as 'uncertain' the resulting CSV downloaded will contain: 1,2,(4). <br><br>
+* **Note:** Selection is automatically cleared when you download CSV.
+* Use a file naming convention common to your project. If your data is in a BIDS structure `sub-01_ses-01.csv` is suggested for subject: `sub-01` session: `ses-01` by default.
+* The file is downloaded to your browsers download folder, collect your resulting CSVs somewhere safe.
 
-_To be continued.._
+In **Mode: Decision**, only the components that are disputed between the two raters are displayed in the navigation-bar. <br>
+<img width="500" alt="mode_decision" src="https://github.com/user-attachments/assets/f08b3a15-5a10-4e0e-a836-8837eeb650ab" />
+
+## Handle uncertain components
+Depending on your design you may want a third rater to make final decisions on 'uncertain' components or try your pipeline both with and without these components. For the latter case you can run the script **sort_uncertain.py**. It takes all CSV-files with components in `data/decision` and either includes uncertain components and writes the file to `data/conservative` or excludes it and writes to `data/strict`. For example, a file with: 1,2,(3),4 would be copied as 1,2,3,4 to `data/conservative` and 1,2,4 to `data/strict`
+
+## Workflow overview
+
+
