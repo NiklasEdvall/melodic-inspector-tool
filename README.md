@@ -55,5 +55,4 @@ In **Mode: Decision**, only the components that are disputed between the two rat
 Depending on your design you may want a third rater to make final decisions on 'uncertain' components or try your pipeline both with and without these components. For the latter case you can run the script **sort_uncertain.py**. It takes all CSV-files with components in `data/decision` and either includes uncertain components and writes the file to `data/conservative` or excludes it and writes to `data/strict`. For example, a file with: 1,2,(3),4 would be copied as 1,2,3,4 to `data/conservative` and 1,2,4 to `data/strict`
 
 ## Workflow overview
-
-
+![MELODIC report](https://github.com/user-attachments/assets/7de8cc14-11f0-40e0-a9b1-410b7a3fa0c9)
