@@ -224,46 +224,66 @@
             saveCheckedComponents();
         });
 
+        // Add uncertain checkbox for both modes
+        const uncertainCheckbox = document.createElement('input');
+        uncertainCheckbox.type = 'checkbox';
+        uncertainCheckbox.id = 'uncertain-checkbox';
+        uncertainCheckbox.style.marginLeft = '10px';
+        uncertainCheckbox.checked = uncertainComponents.has(componentId);
+        
+        const uncertainLabel = document.createElement('label');
+        uncertainLabel.htmlFor = 'uncertain-checkbox';
+        uncertainLabel.textContent = 'Uncertain';
+        uncertainLabel.style.marginLeft = '5px';
+        
+        uncertainCheckbox.addEventListener('change', function() {
+            console.log('Uncertain checkbox changed for component:', componentId);
+            if(this.checked) {
+                uncertainComponents.add(componentId);
+                console.log('Added to uncertain:', componentId);
+                // Also select the component if not already selected
+                if (!checkedComponents.includes(componentId)) {
+                    checkedComponents.push(componentId);
+                    checkbox.checked = true;
+                }
+            } else {
+                uncertainComponents.delete(componentId);
+                console.log('Removed from uncertain:', componentId);
+            }
+            console.log('Current uncertain components:', [...uncertainComponents]);
+            saveUncertainComponents();
+            saveCheckedComponents();
+        });
+
+        // Add rater statistics for decision mode
+        if(mode === 'decision' && raterData && currentSubject && currentSession) {
+            const sessionData = raterData[currentSubject]?.[currentSession];
+            if(sessionData && sessionData.componentStatuses && sessionData.componentStatuses[componentId]) {
+                const stats = sessionData.componentStatuses[componentId];
+                
+                const statsDiv = document.createElement('div');
+                statsDiv.style.marginTop = '10px';
+                statsDiv.style.fontSize = '16px';
+                statsDiv.style.borderTop = '1px solid #ccc';
+                statsDiv.style.paddingTop = '5px';
+                
+                statsDiv.innerHTML = `
+                    <div>Include: ${stats.include}</div>
+                    <div>Uncertain: ${stats.uncertain}</div>
+                    <div>Exclude: ${stats.exclude}</div>
+                `;
+                
+                checkboxContainer.appendChild(statsDiv);
+            }
+        }
+
         // Append elements
         checkboxContainer.appendChild(checkbox);
         checkboxContainer.appendChild(label);
+        checkboxContainer.appendChild(uncertainCheckbox);
+        checkboxContainer.appendChild(uncertainLabel);
+        
         document.body.appendChild(checkboxContainer);
-
-        if(mode === 'decision') {
-            // Add uncertain checkbox
-            const uncertainCheckbox = document.createElement('input');
-            uncertainCheckbox.type = 'checkbox';
-            uncertainCheckbox.id = 'uncertain-checkbox';
-            uncertainCheckbox.style.marginLeft = '10px';
-            uncertainCheckbox.checked = uncertainComponents.has(componentId);
-            
-            const uncertainLabel = document.createElement('label');
-            uncertainLabel.htmlFor = 'uncertain-checkbox';
-            uncertainLabel.textContent = 'Uncertain';
-            uncertainLabel.style.marginLeft = '5px';
-            
-            uncertainCheckbox.addEventListener('change', function() {
-                console.log('Uncertain checkbox changed for component:', componentId);
-                if(this.checked) {
-                    uncertainComponents.add(componentId);
-                    console.log('Added to uncertain:', componentId);
-                    // Also select the component if not already selected
-                    if (!checkedComponents.includes(componentId)) {
-                        checkedComponents.push(componentId);
-                        checkbox.checked = true;
-                    }
-                } else {
-                    uncertainComponents.delete(componentId);
-                    console.log('Removed from uncertain:', componentId);
-                }
-                console.log('Current uncertain components:', [...uncertainComponents]);
-                saveUncertainComponents();
-                saveCheckedComponents();
-            });
-            
-            checkboxContainer.appendChild(uncertainCheckbox);
-            checkboxContainer.appendChild(uncertainLabel);
-        }
     }
 
     // Add export button to index page
@@ -430,7 +450,11 @@
     // Modify the getCSVContent function
     function getCSVContent() {
         if(mode === 'identify') {
-            return checkedComponents.sort((a,b) => a-b).join(',');
+            // Format components with uncertain ones in parentheses
+            return checkedComponents
+                .sort((a, b) => a - b)
+                .map(comp => uncertainComponents.has(comp) ? `(${comp})` : comp)
+                .join(',');
         }
         
         // Decision mode
@@ -446,17 +470,15 @@
             return '';
         }
 
-        // Get components both raters agreed on
-        const agreed = sessionData.raterA
-            .filter(x => sessionData.raterB.includes(x))
-            .map(String);
+        // Get components both raters agreed on (auto-included)
+        const agreed = sessionData.agreed || [];
         
         // Get selected disputed components and format them
         const selectedDisputed = checkedComponents
             .filter(x => sessionData.disputed.includes(x))
             .map(x => uncertainComponents.has(x) ? `(${x})` : String(x));
         
-        // Always return at least the agreed components in decision mode
+        // Combine agreed and selected disputed components
         return [...agreed, ...selectedDisputed]
             .sort((a,b) => {
                 const numA = parseInt(String(a).replace(/[()]/g, '') || '0');
@@ -464,6 +486,33 @@
                 return numA - numB;
             })
             .join(',');
+    }
+
+    // Parse component list with uncertain markings
+    function parseComponentList(listStr) {
+        const components = [];
+        const uncertainComponents = [];
+        
+        const items = listStr.replace(/"/g, '').split(',');
+        for(const item of items) {
+            const trimmed = item.trim();
+            if(trimmed.startsWith('(') && trimmed.endsWith(')')) {
+                // Uncertain component
+                const compId = parseInt(trimmed.slice(1, -1), 10);
+                if(!isNaN(compId)) {
+                    components.push(compId);
+                    uncertainComponents.push(compId);
+                }
+            } else {
+                // Regular component
+                const compId = parseInt(trimmed, 10);
+                if(!isNaN(compId)) {
+                    components.push(compId);
+                }
+            }
+        }
+        
+        return { components, uncertainComponents };
     }
 
     // Load rater data from file
@@ -481,16 +530,66 @@
             // Parse the 4-column format: Subject, Session, RaterA, RaterB
             const [subject, session, raterA, raterB] = line.split('\t');
             
-            // Parse component lists
-            const compA = raterA.replace(/"/g, '').split(',').map(Number);
-            const compB = raterB.replace(/"/g, '').split(',').map(Number);
+            // Parse component lists with uncertain markings
+            const parsedA = parseComponentList(raterA);
+            const parsedB = parseComponentList(raterB);
+            
+            // Find all unique components mentioned by either rater
+            const allComponents = [...new Set([...parsedA.components, ...parsedB.components])];
+            
+            // Calculate component statuses
+            const componentStatuses = {};
+            const displayComponents = []; // Components to show in decision mode
+            const agreedComponents = []; // Components both raters agreed to include (not uncertain)
+            
+            for(const compId of allComponents) {
+                const aHas = parsedA.components.includes(compId);
+                const bHas = parsedB.components.includes(compId);
+                const aUncertain = parsedA.uncertainComponents.includes(compId);
+                const bUncertain = parsedB.uncertainComponents.includes(compId);
+                
+                let includeCount = 0;
+                let uncertainCount = 0;
+                let excludeCount = 0;
+                
+                if(aHas) {
+                    if(aUncertain) uncertainCount++;
+                    else excludeCount++; // Component selected = vote to exclude
+                } else {
+                    includeCount++; // Component not selected = vote to include
+                }
+                
+                if(bHas) {
+                    if(bUncertain) uncertainCount++;
+                    else excludeCount++; // Component selected = vote to exclude
+                } else {
+                    includeCount++; // Component not selected = vote to include
+                }
+                
+                componentStatuses[compId] = {
+                    include: includeCount,
+                    uncertain: uncertainCount,
+                    exclude: excludeCount
+                };
+                
+                // Show component if there's any uncertainty or disagreement
+                if(uncertainCount > 0 || (includeCount > 0 && excludeCount > 0)) {
+                    displayComponents.push(compId);
+                } else if(excludeCount === 2) {
+                    // Both raters agreed to exclude (not uncertain) - these go in final CSV automatically
+                    agreedComponents.push(compId);
+                }
+            }
             
             if(!data[subject]) data[subject] = {};
             data[subject][session] = {
-                raterA: compA,
-                raterB: compB,
-                disputed: compA.filter(x => !compB.includes(x))
-                    .concat(compB.filter(x => !compA.includes(x)))
+                raterA: parsedA.components,
+                raterB: parsedB.components,
+                raterAUncertain: parsedA.uncertainComponents,
+                raterBUncertain: parsedB.uncertainComponents,
+                componentStatuses: componentStatuses,
+                disputed: displayComponents, // Components to show in decision mode
+                agreed: agreedComponents // Components both raters agreed on (will be auto-included)
             };
         }
         
@@ -603,8 +702,8 @@
                 
                 if (!currentRaterData[subject]?.[session]) return;
 
-                const disputedSet = new Set(currentRaterData[subject][session].disputed);
-                console.log('Disputed components:', [...disputedSet]);
+                const disputedSet = new Set(currentRaterData[subject][session].disputed || []);
+                console.log('Components to display:', [...disputedSet]);
 
                 // Update visibility of component links
                 const links = Array.from(font.getElementsByTagName('a'));
