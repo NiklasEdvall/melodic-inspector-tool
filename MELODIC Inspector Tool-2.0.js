@@ -60,14 +60,33 @@
     }
 
     function shouldShowComponent(componentId) {
-        if(mode === 'identify') return true;
+        console.log('shouldShowComponent called with:', componentId, 'mode:', mode);
         
-        if(!raterData || !currentSubject || !currentSession) return false;
+        if(mode === 'identify') {
+            console.log('In identify mode - showing component');
+            return true;
+        }
+        
+        if(!raterData || !currentSubject || !currentSession) {
+            console.log('Missing data:', {
+                raterData: !!raterData,
+                currentSubject,
+                currentSession
+            });
+            // In decision mode, if we don't have the required data, still show the component
+            // This prevents components from being hidden when they shouldn't be
+            return true;
+        }
         
         const sessionData = raterData[currentSubject]?.[currentSession];
-        if(!sessionData) return false;
+        if(!sessionData) {
+            console.log('No session data found for', currentSubject, currentSession);
+            return true; // Show component if no session data
+        }
         
-        return sessionData.disputed.includes(componentId);
+        const shouldShow = sessionData.disputed.includes(componentId);
+        console.log('Component', componentId, 'is disputed:', shouldShow);
+        return shouldShow;
     }
 
     // Add this function near the top with other utility functions
@@ -106,33 +125,53 @@
     function addCheckbox() {
         // Check if this is a component page
         const path = window.location.pathname;
-        if (!path.includes('IC_') || !document.querySelector('h3')) {
+        console.log('Checking path:', path);
+        
+        // More flexible check for component pages
+        if (!path.includes('IC_') && !path.match(/IC_\d+\.html/)) {
+            console.log('Not a component page - no IC_ pattern found');
             return;
-        }
-
-        // Extract subject and session from path
-        const subjectInfo = extractSubjectSession(path);
-        if (subjectInfo) {
-            currentSubject = subjectInfo.subject;
-            currentSession = subjectInfo.session;
         }
 
         // Extract the component number
         const match = path.match(/IC_(\d+)\.html/);
         if (!match) {
+            console.log('No component ID match found in path');
             return;
         }
 
         const componentId = parseInt(match[1], 10);
+        console.log('Found component ID:', componentId);
+
+        // Extract subject and session from path - try multiple patterns
+        let subjectInfo = extractSubjectSession(path);
+        if (!subjectInfo) {
+            // Try alternative extraction methods
+            const pathSegments = path.split('/');
+            const subIndex = pathSegments.findIndex(s => s.startsWith('sub-'));
+            const sesIndex = pathSegments.findIndex(s => s.startsWith('ses-'));
+            if (subIndex !== -1 && sesIndex !== -1) {
+                subjectInfo = {
+                    subject: pathSegments[subIndex],
+                    session: pathSegments[sesIndex]
+                };
+            }
+        }
         
-        // Add this near the top of addCheckbox() function
-        console.log('Current path:', path);
-        console.log('Subject/Session:', currentSubject, currentSession);
+        if (subjectInfo) {
+            currentSubject = subjectInfo.subject;
+            currentSession = subjectInfo.session;
+            console.log('Extracted subject/session:', currentSubject, currentSession);
+        } else {
+            console.log('Could not extract subject/session from path');
+        }
+        
         console.log('Mode:', mode);
-        console.log('Rater data:', raterData);
-        console.log('Should show:', shouldShowComponent(componentId));
+        console.log('Rater data available:', !!raterData);
+        console.log('Should show component:', shouldShowComponent(componentId));
 
         if(!shouldShowComponent(componentId)) {
+            console.log('Component should not be shown, hiding');
             // Hide this component from index
             if(document.querySelector('a[href*="IC_' + componentId + '.html"]')) {
                 document.querySelector('a[href*="IC_' + componentId + '.html"]')
@@ -510,6 +549,33 @@
     }
 
     // Add this new function after the other utility functions
+    function debugPageState() {
+        console.log('=== MELODIC Inspector Debug Info ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Current pathname:', window.location.pathname);
+        console.log('Mode:', mode);
+        console.log('Rater data available:', !!raterData);
+        console.log('Current subject:', currentSubject);
+        console.log('Current session:', currentSession);
+        console.log('Document title:', document.title);
+        console.log('Page has h3 elements:', document.querySelectorAll('h3').length);
+        console.log('Checkbox already exists:', !!document.getElementById('component-checkbox'));
+        
+        // Check if this looks like a component page
+        const isComponentPage = window.location.pathname.includes('IC_') && window.location.pathname.match(/IC_\d+\.html/);
+        console.log('Appears to be component page:', isComponentPage);
+        
+        if (isComponentPage) {
+            const match = window.location.pathname.match(/IC_(\d+)\.html/);
+            const componentId = match ? parseInt(match[1], 10) : null;
+            console.log('Component ID:', componentId);
+            if (componentId) {
+                console.log('Should show this component:', shouldShowComponent(componentId));
+            }
+        }
+        console.log('=====================================');
+    }
+
     function updateNavigationBar() {
         // Only run this code if we're in the navigation frame
         if (!window.location.pathname.endsWith('nav.html')) {
@@ -574,12 +640,37 @@
         }
     }
 
+    // Debug the current state
+    debugPageState();
+
+    // Try adding controls immediately
     addCheckbox();
     addExportButton();
     addControls();
     updateNavigationBar();
 
-    // Update navigation bar when page loads and after iframe loads
-    document.addEventListener('DOMContentLoaded', updateNavigationBar);
-    window.addEventListener('load', updateNavigationBar);
+    // Also try adding controls when DOM is ready and after load
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM Content Loaded - trying to add controls again');
+        debugPageState();
+        addCheckbox();
+        addExportButton();
+        updateNavigationBar();
+    });
+    
+    window.addEventListener('load', () => {
+        console.log('Window Load - trying to add controls again');
+        debugPageState();
+        addCheckbox();
+        addExportButton();
+        updateNavigationBar();
+    });
+
+    // Additional fallback - try again after a short delay
+    setTimeout(() => {
+        console.log('Timeout fallback - trying to add controls');
+        debugPageState();
+        addCheckbox();
+        addExportButton();
+    }, 1000);
 })();
