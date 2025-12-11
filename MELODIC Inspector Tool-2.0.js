@@ -286,6 +286,53 @@
         document.body.appendChild(checkboxContainer);
     }
 
+    // Add keyboard navigation for identify mode
+    function addKeyboardNavigation() {
+        // Only add in identify mode and on component pages
+        if (mode !== 'identify') return;
+        
+        const path = window.location.pathname;
+        if (!path.includes('IC_') || !path.match(/IC_\d+\.html$/)) return;
+        
+        // Prevent adding multiple event listeners
+        if (document.keyboardNavigationAdded) return;
+        document.keyboardNavigationAdded = true;
+        
+        // Extract current component number
+        const match = path.match(/IC_(\d+)\.html/);
+        if (!match) return;
+        
+        const currentComponent = parseInt(match[1], 10);
+        console.log('Current component for navigation:', currentComponent);
+        
+        // Add keyboard event listener
+        document.addEventListener('keydown', function(event) {
+            // Only handle arrow keys if not typing in an input field
+            if (document.activeElement && 
+                (document.activeElement.tagName === 'INPUT' || 
+                 document.activeElement.tagName === 'TEXTAREA')) {
+                return;
+            }
+            
+            let targetComponent = null;
+            
+            if (event.key === 'ArrowLeft') {
+                targetComponent = currentComponent - 1;
+                event.preventDefault();
+            } else if (event.key === 'ArrowRight') {
+                targetComponent = currentComponent + 1;
+                event.preventDefault();
+            }
+            
+            if (targetComponent !== null && targetComponent > 0) {
+                // Construct new URL
+                const newPath = path.replace(/IC_\d+\.html/, `IC_${targetComponent}.html`);
+                console.log('Navigating to:', newPath);
+                window.location.href = newPath;
+            }
+        });
+    }
+
     // Add export button to index page
     function addExportButton() {
         // Check if this is the index page
@@ -746,6 +793,7 @@
     addCheckbox();
     addExportButton();
     addControls();
+    addKeyboardNavigation();
     updateNavigationBar();
 
     // Also try adding controls when DOM is ready and after load
@@ -754,6 +802,7 @@
         debugPageState();
         addCheckbox();
         addExportButton();
+        addKeyboardNavigation();
         updateNavigationBar();
     });
     
@@ -762,6 +811,7 @@
         debugPageState();
         addCheckbox();
         addExportButton();
+        addKeyboardNavigation();
         updateNavigationBar();
     });
 
@@ -771,5 +821,6 @@
         debugPageState();
         addCheckbox();
         addExportButton();
+        addKeyboardNavigation();
     }, 1000);
 })();
